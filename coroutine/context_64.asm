@@ -6,6 +6,7 @@ global asm_switch_context_64
 ;rdi newCoroutine
 asm_switch_context_64:
 	;保存当前线程 现场
+	pushfq
     push rbp
     mov rbp, rsp
     push rdi
@@ -26,4 +27,5 @@ asm_switch_context_64:
     pop rsi
     pop rdi
     pop rbp
+	popfq
     ret			;pop rip

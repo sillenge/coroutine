@@ -89,7 +89,8 @@ void test_2() {
     delete ccb;
 }
 
-int main() {
-    test_1();
-    //test_2();
-}
+////不知道怎么写CMAKE测试，只能用土办法
+//int main() {
+//    test_1();
+//    //test_2();
+//}

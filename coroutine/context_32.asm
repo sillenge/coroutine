@@ -9,6 +9,7 @@ global asm_switch_context_32
 ;rdi newCoroutine
 asm_switch_context_32:
 	;保存当前线程 现场
+	pushf
     push ebp
     mov ebp, esp
     push edi
@@ -29,5 +30,6 @@ asm_switch_context_32:
     pop esi
     pop edi
     pop ebp
+	popf
     ret				;pop eip
 

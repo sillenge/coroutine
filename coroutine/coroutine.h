@@ -25,8 +25,6 @@
 #define COROUTINE_SUSPEND   0x10
 #define COROUTINE_EXIT      0x100
 
-//#define DPLATFORM_64
-
 
 namespace crt {
 //-------------------------namesapce crt----------------------------
@@ -44,7 +42,7 @@ typedef struct Coroutine {
     void* stack_limit = nullptr;    // +0x10 堆栈界限 
 
     int CID = 0;                    // +0x18 协程ID，0保留给当前协程 
-    int flags = 0;                  // +0x1c 状态    
+    UINT flags = 0;                  // +0x1c 状态    
     ULNOG sleep_millisecond_dot = 0;// +0x20 休眠时间, 这里不够其实可以增加到longlong
 
     void* arg = nullptr;            // +0x28 线程函数的参数
@@ -70,26 +68,32 @@ private:
 
     std::list<Coroutine*> liCrt;
     std::list<Coroutine*>::iterator cur;
+    
+protected:
     std::unordered_map<UINT, Coroutine*> mapCid;
+    //子类可以通过cid索引到Coroutine结构体
+    Coroutine* getCoroutine(UINT cid);
 
 private:
     //push void* (32位下sizeof(void*) = 4 --- 64位下sizeof(void*) = 8)
-    void pushStack(void*** stack, void* data);
+    void pushStack(void**  stack, void* data);
     //调用汇编函数前的传参，需要确保传参和使用参数方式一致，减少if的使用
     void (*switchContext)(Coroutine* newCoroutine, Coroutine* oldCoroutine) = nullptr;
-    void idleCoroutine(void* arg);//休息10ms后继续，保留(未使用)
-
+    
     inline void setFlag(Coroutine* c, UINT flag);
     inline void unsetFlag(Coroutine* c, UINT flag);
     inline unsigned long getTimestamp();
     //从链表中删除一个协程
     inline void removeCoroutine(std::list<Coroutine*>::iterator it);
+    //方便后序拓展
+    inline void* getStack();
 
 public:
     //初始化后，保留第一个留给当前协程使用
     CoroutineController();
     ~CoroutineController();
-
+    //休息20ms后继续
+    void idleCoroutine(void* arg);
     //向CoCtrl中注册一个协程，返回一个CID (协程ID)
     int  registerCoroutine(Callback func, void* arg);
     //调度协程
@@ -104,7 +108,8 @@ public:
     int resume(UINT cid);
     //结束指定协程
     int terminate(UINT cid);
-
+    //通过CID获取Coroutine状态
+    UINT getCoroutineStatus(UINT cid);
 }CoCtrl;
 
 //如果这个能用，那么startCoroutine可以写成私有函数
