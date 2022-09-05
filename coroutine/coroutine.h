@@ -35,19 +35,20 @@ typedef unsigned long ULNOG;
 
 typedef void (*Callback)(void*);
 
-
+//注释偏移按64位计算
 typedef struct Coroutine {
     void* cur_stack = nullptr;      // +0x0  堆栈当前位置 (EPS) 放到第一个不用区分64和32位 
     void* inital_stack = nullptr;   // +x08  堆栈起始位置 
     void* stack_limit = nullptr;    // +0x10 堆栈界限 
 
     int CID = 0;                    // +0x18 协程ID，0保留给当前协程 
-    UINT flags = 0;                  // +0x1c 状态    
+    UINT flags = 0;                 // +0x1c 状态    
     ULNOG sleep_millisecond_dot = 0;// +0x20 休眠时间, 这里不够其实可以增加到longlong
 
-    void* arg = nullptr;            // +0x28 线程函数的参数
-    Callback func = nullptr;        // +0x30 线程函数
-
+    
+    Callback func = nullptr;        // +0x28 线程函数
+    void* arg = nullptr;            // +0x30 线程函数的参数
+    void* arg2 = nullptr;            // +0x38 线程函数的参数
 }CRT;
 
 
@@ -95,7 +96,7 @@ public:
     //休息20ms后继续
     void idleCoroutine(void* arg);
     //向CoCtrl中注册一个协程，返回一个CID (协程ID)
-    int  registerCoroutine(Callback func, void* arg);
+    int  registerCoroutine(Callback func, void* arg, void* arg2 = nullptr);
     //调度协程
     void scheduling();
     //睡眠指定时间，单位：毫秒

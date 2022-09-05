@@ -27,7 +27,7 @@ endif()
 message(${ASM_CONTEXT})
 
 # 将源代码添加到此项目的可执行文件。
-add_executable (coroutine "coroutine.cpp" "coroutine.h" ${ASM_CONTEXT} "testCoroutine.cpp" "coPool.h" "coPool.cpp"  "testCoroutinePool.cpp")
+add_executable (coroutine "coroutine.cpp" "coroutine.h" ${ASM_CONTEXT} "testCoroutine.cpp" "coPool.h" "coPool.cpp"  "testCoroutinePool.cpp" "httpd.cpp" "httpd.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET coroutine PROPERTY CXX_STANDARD 20)

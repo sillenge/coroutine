@@ -23,11 +23,12 @@ CoroutineController::~CoroutineController() {
     }
 }
 
-int CoroutineController::registerCoroutine(Callback func, void* arg) {
+int CoroutineController::registerCoroutine(Callback func, void* arg, void* arg2) {
     Coroutine* c = new Coroutine();
     c->flags = Flags::Create;
     c->func = func;
     c->arg = arg;
+    c->arg2 = arg2;
     //c->CID = liCrt.back()->CID + 1; //应该不会爆表
     UINT cid = liCrt.back()->CID + 1;
     while (mapCid.count(cid) != 0 || cid == 0) {
@@ -43,10 +44,10 @@ int CoroutineController::registerCoroutine(Callback func, void* arg) {
     //下面的代码与汇编context有关，
     
     pushStack(&t_ESP, reinterpret_cast<void*>(crt::startCoroutine)); //函数入口 eip (ret指令弹出)
-    pushStack(&t_ESP, reinterpret_cast<void*>(0x246));        //eflags，无意义
+    pushStack(&t_ESP, reinterpret_cast<void*>(0x246));    //eflags，无意义
     pushStack(&t_ESP, reinterpret_cast<void*>(0));        //rbp，寄存器初始值(下同)，无意义
     pushStack(&t_ESP, reinterpret_cast<void*>(c));        //rdi，参数1，通过这个参数调用scheduling
-    pushStack(&t_ESP, reinterpret_cast<void*>(this));     //rsi，参数2，通过这个值找到func和arg并调用
+    pushStack(&t_ESP, reinterpret_cast<void*>(this));     //rsi，参数2，通过这个值找到func和args并调用
     pushStack(&t_ESP, reinterpret_cast<void*>(0));        //rbx，无意义
     pushStack(&t_ESP, reinterpret_cast<void*>(0));        //rcx，无意义
     pushStack(&t_ESP, reinterpret_cast<void*>(0));        //rdx，无意义  
@@ -63,44 +64,48 @@ int CoroutineController::registerCoroutine(Callback func, void* arg) {
 }
 
 void CoroutineController::scheduling() {
-    Coroutine* newCoroutine = *liCrt.begin();
+    Coroutine* newCoroutine = nullptr;
     Coroutine* oldCoroutine = *cur;
-    ULNOG tick = getTimestamp();
+    
 
-    ++cur; //当前的执行完了，指向下一个
-    auto it = cur;
+    auto it = cur;//当前的执行完了，指向下一个
+    ++it;
+    it = it == liCrt.end() ? liCrt.begin() : it;
 
-    cur = liCrt.begin();
+    while (newCoroutine == nullptr){
+        ULNOG tick = getTimestamp();
+        for (; it != liCrt.end(); it++) {
+            Coroutine* c = *it;
+            int tflags = c->flags;
 
-    for (; it != liCrt.end(); it++) {
-        Coroutine* c = *it;
-        int tflags = c->flags;
-
-        if (tflags & Flags::Suspend) continue;
-        //if (c->flags & Flags::Exit) continue;
-        if (tflags & Flags::Exit) {
-            if (c != *cur) {
-                //不是当前线程，且退出了，直接清理
-                auto delIt = it;
-                it--;
-                removeCoroutine(delIt);
+            if (tflags & Flags::Suspend) continue;
+            //if (c->flags & Flags::Exit) continue;
+            if (tflags & Flags::Exit) {
+                if (c != oldCoroutine && c != *liCrt.begin()) {
+                    //不是当前线程，且不是主协程，直接清理
+                    auto delIt = it;
+                    it--;
+                    removeCoroutine(delIt);
+                }
+                continue;
             }
-            continue;
-        }
 
-        if (tflags & Flags::Sleep) {
-            if (c->sleep_millisecond_dot < tick) {
-                unsetFlag(c, Flags::Sleep);
-                setFlag(c, Flags::Ready);
+            if (tflags & Flags::Sleep) {
+                if (c->sleep_millisecond_dot < tick && !(tflags & Flags::Suspend)) {
+                    unsetFlag(c, Flags::Sleep);
+                    setFlag(c, Flags::Ready);
+                }
+            }
+            
+            if (tflags & (Flags::Ready | Flags::Running)) {
+                newCoroutine = c;
+                cur = it; //指向新的协程
+                goto end_while;//跳出两层循环
             }
         }
-
-        if (tflags & Flags::Ready) {
-            newCoroutine = c;
-            cur = it; //指向新的协程
-            break;
-        }
+        it = liCrt.begin();
     }
+end_while:
     setFlag  (newCoroutine, Flags::Running);  
     unsetFlag(newCoroutine, Flags::Ready);//ready --> running
 
@@ -204,7 +209,13 @@ void* CoroutineController::getStack() {
 }
 
 void startCoroutine(Coroutine* c, CoroutineController* ccb) {
-    c->func(c->arg);
+    if (c->arg2 == nullptr) {
+        c->func(c->arg);
+    }
+    else {
+        //void func(void* arg, void* arg2);
+        reinterpret_cast<void (*)(void*, void*)>(c->func)(c->arg, c->arg2);
+    }
     c->flags = CoCtrl::Flags::Exit; //标记退出
     //这里不能直接删除，因为删除后这块地址不能使用，switchContext里是会出错的
     ccb->scheduling();

@@ -39,8 +39,10 @@ void test_1() {
     Cids[2] = ccb->registerCoroutine(testFunc2, (void*)2000);
     Cids[3] = ccb->registerCoroutine(testFunc3, (void*)1000);
     cout << "main 1" << endl;
-    for (int i = 0; i < 1000; i++) {
-        usleep(10 * 1000);
+    for (int i = 0; i < 10; i++) {
+        usleep(500 * 1000);
+        //这里面是死循环，如果没找到空闲的协程就不出来了
+        //如果没有死循环，那么必定有一个协程无法挂起和休眠
         ccb->scheduling();
     }
     ccb->terminate(Cids[1]);//主动结束testFunc1
@@ -89,7 +91,7 @@ void test_2() {
     delete ccb;
 }
 
-////不知道怎么写CMAKE测试，只能用土办法
+//不知道怎么写CMAKE测试，只能用土办法
 //int main() {
 //    test_1();
 //    //test_2();
